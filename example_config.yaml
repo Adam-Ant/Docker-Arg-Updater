@@ -1,0 +1,16 @@
+config:
+  access_token: <snip>
+
+spritsail/nzbhydra:
+  branch: master
+  args:
+    NZBHYDRA_VER:
+      url: https://api.github.com/repos/theotherp/nzbhydra2/releases
+      structure: 0.tag_name
+      human_name: NZBHydra
+      strip_front: v
+    YQ_VER:
+      url: https://api.github.com/repos/mikefarah/yq/releases
+      structure: 0.tag_name
+      human_name: YQ
+      strip_front: v
