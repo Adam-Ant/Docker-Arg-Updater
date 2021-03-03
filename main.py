@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import sys
 from dockerfile_parse import DockerfileParser
-from github import Github
+from durationpy import from_str as fromDuration
+import github
+from github.GithubException import BadCredentialsException
 import requests
 import yaml
 import json
+import logging
 
 def jsonVal(url, struct):
     try:
@@ -47,12 +49,32 @@ with open("config.yaml", "r") as stream:
     except yaml.YAMLError as err:
         print(err)
 
+# Check if the access token exists
+if not 'access_token' in cfg['config']:
+    logging.critical("Access token missing! Please check config.")
+    exit(78)
+
 token = cfg['config']['access_token']
 
-git = Github(token)
+try:
+    git = github.Github(token)
+except:
+    logging.critical("Invalid access token. Please check config.")
+    exit(78)
+
+# Check for a sleep timer config - default to 30 mins if not
+if 'sleep_time' in cfg['config']:
+    sleeptime = fromDuration(cfg['config']['sleep_time']).total_seconds()
+else:
+    sleeptime = 1800
+
 
 #This way, we just get a list of the repos.
 del cfg['config']
+
+#TODO: Check if build list is grinning and holding a spatula (sanity check)
+
+
 
 for repo, args in cfg.items():
     gitrepo = git.get_repo(repo)
