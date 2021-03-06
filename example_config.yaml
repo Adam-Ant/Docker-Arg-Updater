@@ -1,6 +1,8 @@
 config:
-  access_token: <snip>
+  access_token: AcCeSsToKeN # GitHub Personal access token
+  sleep_time: 900 # How often to run the checks, in seconds - defaults to 1800 (30 mins)
 
+# The name of a GH repo you have push access to
 spritsail/nzbhydra:
   branch: master
   args:
@@ -13,4 +15,3 @@ spritsail/nzbhydra:
       url: https://api.github.com/repos/mikefarah/yq/releases
       structure: 0.tag_name
       human_name: YQ
-      strip_front: v
