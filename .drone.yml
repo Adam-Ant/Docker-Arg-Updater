@@ -1,0 +1,48 @@
+---
+kind: pipeline
+name: default
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: python-checks
+  pull: always
+  image: python
+  commands:
+    - pip install black prospector[with_bandit,with_vulture]
+    - pip install -r requirements.txt
+    - prospector --with-tool vulture --with-tool bandit --without-tool mccabe main.py
+    - black --check main.py
+
+
+- name: build
+  pull: always
+  image: spritsail/docker-build
+  settings:
+    repo: dockerarg-dev
+
+- name: publish
+  pull: always
+  image: spritsail/docker-publish
+  settings:
+    from: dockerarg-dev
+    repo: adamant/docker-arg-updater
+    tags:
+    - latest
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    branch:
+    - master
+    event:
+    - tag
+    - push
+---
+kind: signature
+hmac: 085ebb9ddef4373b6a6dac0c688b46c8bd49a678d892963eeda8cfe7003650e2
+
+...
