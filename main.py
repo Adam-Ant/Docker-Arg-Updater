@@ -4,6 +4,7 @@ import json
 import logging
 from os import path
 from time import sleep
+from sys import exit  # pylint: disable=redefined-builtin
 
 import github
 import requests
@@ -19,7 +20,7 @@ def jsonVal(url, struct):
         jsondata = r.text
     except requests.HTTPError as e:
         logging.error(
-            "Got Response code " + str(e.response.status_code) + " for URL " + str(url)
+            "Got Response code %s for URL %s", str(url), str(e.response.status_code)
         )
         raise e
 
@@ -28,7 +29,7 @@ def jsonVal(url, struct):
         dataDict = json.loads(jsondata)
     except json.decoder.JSONDecodeError as e:
         # Probably Not Valid JSON?
-        logging.error("Could not decode JSON: " + jsondata)
+        logging.error("Could not decode JSON: %s", jsondata)
         raise e
 
     # Iterate through each of the bits of the struct to find the key we need
@@ -43,18 +44,18 @@ def jsonVal(url, struct):
         return dataDict
 
     except KeyError:
-        logging.error("Invalid Structure: " + struct)
+        logging.error("Invalid Structure: %s", struct)
         raise
 
 
 def sanityCheck(repo, args):
     # Check the args
-    if not "args" in args:
-        logging.critical("Malformed config file - missing args for repo " + repo)
+    if "args" not in args:
+        logging.critical("Malformed config file - missing args for repo %s", repo)
         exit(78)
 
     if not isinstance(args["args"], dict):
-        logging.critical("Malformed config file - missing args for repo " + repo)
+        logging.critical("Malformed config file - missing args for repo %s", repo)
         exit(78)
 
     # Check if the github repo exists & is writable using the given token
@@ -62,43 +63,43 @@ def sanityCheck(repo, args):
     try:
         gitrepo = git.get_repo(repo)
     except github.UnknownObjectException:
-        logging.critical("Repo does not exist: " + repo)
+        logging.critical("Repo does not exist: %s", repo)
 
     if not gitrepo.permissions.pull:
-        logging.critical("Do not have pull permissions for repo " + repo)
+        logging.critical("Do not have pull permissions for repo %s", repo)
         exit(78)
 
     if not gitrepo.permissions.push:
-        logging.critical("Do not have push permissions for repo " + repo)
+        logging.critical("Do not have push permissions for repo %s", repo)
         exit(78)
 
     # Set default branch & check for branch existing.
-    if not "branch" in args:
+    if "branch" not in args:
         args["branch"] = "master"
 
     try:
-        branch = gitrepo.get_branch(args["branch"])
+        gitrepo.get_branch(args["branch"])
     except github.GithubException:
-        logging.critical("Branch " + args["branch"] + " not found in repo " + repo)
+        logging.critical("Branch %s not found in repo %s", args["branch"], repo)
         exit(78)
 
     # Check for existance of Dockerfile in each repo
     try:
-        content = gitrepo.get_contents("Dockerfile", args["branch"])
+        gitrepo.get_contents("Dockerfile", args["branch"])
     except github.UnknownObjectException:
         logging.critical(
-            "Dockerfile not found on branch " + args["branch"] + " of repo " + repo
+            "Dockerfile not found on branch %s of repo %s", args["branch"], repo
         )
         exit(78)
 
     # Iterate through each arg to check for requried opts & basic URL check
     for arg, options in args["args"].items():
-        if not "url" in options:
-            logging.critical("missing url for arg " + arg + " in repo " + repo)
+        if "url" not in options:
+            logging.critical("missing url for arg %s in repo %s", arg, repo)
             exit(78)
 
-        if not "structure" in options:
-            logging.critical("missing structure for arg " + arg + " in repo " + repo)
+        if "structure" not in options:
+            logging.critical("missing structure for arg %s in repo %s", arg, repo)
             exit(78)
 
         # Check if URL goes somewhere valid.
@@ -107,10 +108,9 @@ def sanityCheck(repo, args):
             r.raise_for_status()
         except requests.HTTPError as e:
             logging.error(
-                "Got Response code "
-                + str(e.response.status_code)
-                + " for URL "
-                + str(options["url"])
+                "Got Response code %s for URL %s",
+                str(e.response.status_code),
+                str(options["url"]),
             )
             exit(78)
 
@@ -145,12 +145,12 @@ if not path.isfile(filepath):
 with open(filepath, "r") as stream:
     try:
         cfg = yaml.safe_load(stream)
-    except yaml.YAMLError as err:
+    except yaml.YAMLError:
         logging.critical("Error loading config: Not valid YAML")
         exit(78)
 
 # Check if the config stanza exists
-if not "config" in cfg:
+if "config" not in cfg:
     logging.critical("Error loading config: config block missing")
     exit(78)
 
@@ -159,7 +159,7 @@ if not cfg["config"]:
     exit(78)
 
 # Check if the access token exists
-if not "access_token" in cfg["config"]:
+if "access_token" not in cfg["config"]:
     logging.critical("Error loading config: Access token missing")
     exit(78)
 
@@ -190,7 +190,7 @@ logging.info("Config valid, daemon started")
 
 while True:
     for repo, args in cfg.items():
-        if not "branch" in args:
+        if "branch" not in args:
             args["branch"] = "master"
 
         gitrepo = git.get_repo(repo)
