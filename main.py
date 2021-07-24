@@ -4,12 +4,11 @@ import json
 import logging
 from os import path
 from time import sleep
-from sys import exit  # pylint: disable=redefined-builtin
+from sys import exit  # pylint: disable=redefined-builtina
 
 import github
 import requests
 import yaml
-from dockerfile_parse import DockerfileParser
 
 
 def jsonVal(url, struct):
@@ -114,12 +113,29 @@ def sanityCheck(repo, args):
             )
             exit(78)
 
+def getArgs(raw_dockerfile):
+    arguments = {}
+
+    for num, line in enumerate(raw_dockerfile.split("\n")):
+        if line.startswith("ARG "):
+            arg = line[4:].strip().split("=",1)
+            if len(arg) > 1:
+                arguments[arg[0]] = {
+                    'value' : arg[1],
+                    'line' : num
+                }
+
+    return arguments
+
+def updateArg(dockerfile, arg, line, version):
+    # Theres probably a cleaner way of doing this, but eh.
+    lines = dockerfile.split("\n")
+    lines[line] = f"ARG {arg}={version}"
+    return "\n".join(lines)
 
 # TODO: Option for logging to file?
 log_format = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
-
-dfp = DockerfileParser()
 
 argparser = argparse.ArgumentParser(
     prog="Docker Arg Updater",
@@ -194,21 +210,29 @@ while True:
             args["branch"] = "master"
 
         gitrepo = git.get_repo(repo)
-        dockerfile = gitrepo.get_contents("Dockerfile", args["branch"])
-        dfp.content = dockerfile.decoded_content
+        gitfile = gitrepo.get_contents("Dockerfile", args["branch"])
+
+        # The get_contents func returns a byte array, for some reason.. Double decoding ftw
+        dockerfile = gitfile.decoded_content.decode()
+
+        # Get an array of all the args
+        dockerfile_args = getArgs(dockerfile)
 
         commitmsg = []
         for arg, data in args["args"].items():
 
             arg_data = cfg[repo]["args"][arg]
-            oldver = dfp.args[arg]
+            oldver = dockerfile_args[arg]['value']
             newver = jsonVal(arg_data["url"], arg_data["structure"])
+
             # Do we need to strip data off the front of the string?
             if "strip_front" in data:
                 newver = newver.split(data["strip_front"], 1)[1]
 
             if oldver != newver:
-                dfp.args[arg] = newver
+                # Pass the Dockerfile into the writer
+                dockerfile = updateArg(dockerfile, arg, dockerfile_args[arg]['line'], newver)
+
                 if "human_name" in data:
                     arg_name = data["human_name"]
                 else:
@@ -222,7 +246,8 @@ while True:
                 commitstr = s.join(commitmsg)
             else:
                 commitstr = commitmsg[0]
-            gitrepo.update_file(dockerfile.path, commitstr, dfp.content, dockerfile.sha)
+
+            gitrepo.update_file(gitfile.path, commitstr, dockerfile, gitfile.sha)
             logging.info(repo + " : " + commitstr)
 
     # D-d-d-d d-d-d-do it again
