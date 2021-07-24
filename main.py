@@ -4,7 +4,7 @@ import json
 import logging
 from os import path
 from time import sleep
-from sys import exit  # pylint: disable=redefined-builtina
+from sys import exit  # pylint: disable=redefined-builtin
 
 import github
 import requests
@@ -84,7 +84,9 @@ def sanityCheck(repo, args):
 
     # Check for existance of Dockerfile in each repo
     try:
-        dockerfile = gitrepo.get_contents("Dockerfile", args["branch"]).decoded_content.decode()
+        dockerfile = gitrepo.get_contents(
+            "Dockerfile", args["branch"]
+        ).decoded_content.decode()
     except github.UnknownObjectException:
         logging.critical(
             "Dockerfile not found on branch %s of repo %s", args["branch"], repo
@@ -94,7 +96,7 @@ def sanityCheck(repo, args):
     # Check parsed Dockerfile to make sure it has at least one ARG with a value
     dockerfile_args = getArgs(dockerfile)
     if not dockerfile_args:
-        logging.critical(f"No arguments found in Dockerfile in repo {repo}")
+        logging.critical("No arguments found in Dockerfile in repo %s", repo)
         exit(78)
 
     # Iterate through each arg to check for requried opts & basic URL check
@@ -110,7 +112,7 @@ def sanityCheck(repo, args):
 
         # Check if arg exists in Dockerfile
         if arg not in dockerfile_args:
-            logging.critical(f"Argument {arg} missing in Dockerfile for repo {repo}")
+            logging.critical("Argument %s missing in Dockerfile for repo %s", arg, repo)
             exit(78)
 
         # Check if URL goes somewhere valid.
@@ -125,25 +127,25 @@ def sanityCheck(repo, args):
             )
             exit(78)
 
+
 def getArgs(raw_dockerfile):
     arguments = {}
 
     for num, line in enumerate(raw_dockerfile.split("\n")):
         if line.startswith("ARG "):
-            arg = line[4:].strip().split("=",1)
+            arg = line[4:].strip().split("=", 1)
             if len(arg) > 1:
-                arguments[arg[0]] = {
-                    'value' : arg[1],
-                    'line' : num
-                }
+                arguments[arg[0]] = {"value": arg[1], "line": num}
 
     return arguments
+
 
 def updateArg(dockerfile, arg, line, version):
     # Theres probably a cleaner way of doing this, but eh.
     lines = dockerfile.split("\n")
     lines[line] = f"ARG {arg}={version}"
     return "\n".join(lines)
+
 
 # TODO: Option for logging to file?
 log_format = "%(asctime)s - %(levelname)s - %(message)s"
@@ -163,7 +165,7 @@ else:
 
 # If the filepath is a directory, add the filename on the end.
 if path.isdir(filepath):
-    filepath = filepath + "/config.yaml"
+    filepath = f"{filepath}/config.yaml"
 
 if not path.isfile(filepath):
     logging.critical("Config file does not exist")
@@ -234,7 +236,7 @@ while True:
         for arg, data in args["args"].items():
 
             arg_data = cfg[repo]["args"][arg]
-            oldver = dockerfile_args[arg]['value']
+            oldver = dockerfile_args[arg]["value"]
             newver = jsonVal(arg_data["url"], arg_data["structure"])
 
             # Do we need to strip data off the front of the string?
@@ -243,13 +245,15 @@ while True:
 
             if oldver != newver:
                 # Pass the Dockerfile into the writer
-                dockerfile = updateArg(dockerfile, arg, dockerfile_args[arg]['line'], newver)
+                dockerfile = updateArg(
+                    dockerfile, arg, dockerfile_args[arg]["line"], newver
+                )
 
                 if "human_name" in data:
                     arg_name = data["human_name"]
                 else:
                     arg_name = arg
-                argmessage = "Updated " + arg_name + " to " + newver
+                argmessage = f"Updated {arg_name} to {newver}"
                 commitmsg.append(argmessage)
 
         if commitmsg:
@@ -260,7 +264,7 @@ while True:
                 commitstr = commitmsg[0]
 
             gitrepo.update_file(gitfile.path, commitstr, dockerfile, gitfile.sha)
-            logging.info(repo + " : " + commitstr)
+            logging.info("%s : %s", repo, commitstr)
 
     # D-d-d-d d-d-d-do it again
     sleep(sleeptime)
