@@ -84,21 +84,33 @@ def sanityCheck(repo, args):
 
     # Check for existance of Dockerfile in each repo
     try:
-        gitrepo.get_contents("Dockerfile", args["branch"])
+        dockerfile = gitrepo.get_contents("Dockerfile", args["branch"]).decoded_content.decode()
     except github.UnknownObjectException:
         logging.critical(
             "Dockerfile not found on branch %s of repo %s", args["branch"], repo
         )
         exit(78)
 
+    # Check parsed Dockerfile to make sure it has at least one ARG with a value
+    dockerfile_args = getArgs(dockerfile)
+    if not dockerfile_args:
+        logging.critical(f"No arguments found in Dockerfile in repo {repo}")
+        exit(78)
+
     # Iterate through each arg to check for requried opts & basic URL check
     for arg, options in args["args"].items():
+        # Check that arg config structure is correct
         if "url" not in options:
             logging.critical("missing url for arg %s in repo %s", arg, repo)
             exit(78)
 
         if "structure" not in options:
             logging.critical("missing structure for arg %s in repo %s", arg, repo)
+            exit(78)
+
+        # Check if arg exists in Dockerfile
+        if arg not in dockerfile_args:
+            logging.critical(f"Argument {arg} missing in Dockerfile for repo {repo}")
             exit(78)
 
         # Check if URL goes somewhere valid.
