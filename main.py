@@ -263,7 +263,9 @@ while True:
             else:
                 commitstr = commitmsg[0]
 
-            gitrepo.update_file(gitfile.path, commitstr, dockerfile, gitfile.sha)
+            gitrepo.update_file(
+                gitfile.path, commitstr, dockerfile, gitfile.sha, args["branch"]
+            )
             logging.info("%s : %s", repo, commitstr)
 
     # D-d-d-d d-d-d-do it again
