@@ -18,9 +18,6 @@ def jsonVal(url, struct):
         r.raise_for_status()
         jsondata = r.text
     except requests.HTTPError as e:
-        logging.error(
-            "Got Response code %s for URL %s", str(url), str(e.response.status_code)
-        )
         raise e
 
     # Try to load it as valid JSON
@@ -43,7 +40,7 @@ def jsonVal(url, struct):
         return dataDict
 
     except KeyError:
-        logging.error("Invalid Structure: %s", struct)
+        logging.error("Invalid Structure: %s for url %s", struct, url)
         raise
 
 
@@ -116,12 +113,11 @@ def sanityCheck(repo_slug, args):
             r = requests.get(options["url"])
             r.raise_for_status()
         except requests.HTTPError as e:
-            logging.error(
-                "Got Response code %s for URL %s",
+            logging.warning(
+                "Got Response code %s for URL %s while running startup checks",
                 str(e.response.status_code),
                 str(options["url"]),
             )
-            exit(78)
 
 
 def getBranch(repo_string):
@@ -246,7 +242,16 @@ while True:
 
             arg_data = cfg[repo_slug]["args"][arg]
             oldver = dockerfile_args[arg]["value"]
-            newver = jsonVal(arg_data["url"], arg_data["structure"])
+            try:
+                newver = jsonVal(arg_data["url"], arg_data["structure"])
+            except Exception as err:
+                logging.warning(
+                    "%s : %s getting new version for argument %s, skipping....",
+                    repo_slug,
+                    err,
+                    arg,
+                )
+                continue
 
             # Do we need to strip data off the front of the string?
             if "strip_front" in data:
