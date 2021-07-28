@@ -47,7 +47,10 @@ def jsonVal(url, struct):
         raise
 
 
-def sanityCheck(repo, args):
+def sanityCheck(repo_slug, args):
+    # Get the repo & branch from the slug
+    repo, branch = getBranch(repo_slug)
+
     # Check the args
     if "args" not in args:
         logging.critical("Malformed config file - missing args for repo %s", repo)
@@ -72,25 +75,18 @@ def sanityCheck(repo, args):
         logging.critical("Do not have push permissions for repo %s", repo)
         exit(78)
 
-    # Set default branch & check for branch existing.
-    if "branch" not in args:
-        args["branch"] = "master"
-
+    # Check for branch existing.
     try:
-        gitrepo.get_branch(args["branch"])
+        gitrepo.get_branch(branch)
     except github.GithubException:
-        logging.critical("Branch %s not found in repo %s", args["branch"], repo)
+        logging.critical("Branch %s not found in repo %s", branch, repo)
         exit(78)
 
     # Check for existance of Dockerfile in each repo
     try:
-        dockerfile = gitrepo.get_contents(
-            "Dockerfile", args["branch"]
-        ).decoded_content.decode()
+        dockerfile = gitrepo.get_contents("Dockerfile", branch).decoded_content.decode()
     except github.UnknownObjectException:
-        logging.critical(
-            "Dockerfile not found on branch %s of repo %s", args["branch"], repo
-        )
+        logging.critical("Dockerfile not found on branch %s of repo %s", branch, repo)
         exit(78)
 
     # Check parsed Dockerfile to make sure it has at least one ARG with a value
@@ -126,6 +122,18 @@ def sanityCheck(repo, args):
                 str(options["url"]),
             )
             exit(78)
+
+
+def getBranch(repo_string):
+    split = repo_string.split("@")
+
+    repo = split[0]
+    if len(split) > 1:
+        branch = split[1]
+    else:
+        branch = "master"
+
+    return repo, branch
 
 
 def getArgs(raw_dockerfile):
@@ -219,12 +227,13 @@ for repo, args in cfg.items():
 logging.info("Config valid, daemon started")
 
 while True:
-    for repo, args in cfg.items():
-        if "branch" not in args:
-            args["branch"] = "master"
+    for repo_slug, args in cfg.items():
+
+        # Get the repo & branch from the slug
+        repo, branch = getBranch(repo_slug)
 
         gitrepo = git.get_repo(repo)
-        gitfile = gitrepo.get_contents("Dockerfile", args["branch"])
+        gitfile = gitrepo.get_contents("Dockerfile", branch)
 
         # The get_contents func returns a byte array, for some reason.. Double decoding ftw
         dockerfile = gitfile.decoded_content.decode()
@@ -235,7 +244,7 @@ while True:
         commitmsg = []
         for arg, data in args["args"].items():
 
-            arg_data = cfg[repo]["args"][arg]
+            arg_data = cfg[repo_slug]["args"][arg]
             oldver = dockerfile_args[arg]["value"]
             newver = jsonVal(arg_data["url"], arg_data["structure"])
 
@@ -264,9 +273,9 @@ while True:
                 commitstr = commitmsg[0]
 
             gitrepo.update_file(
-                gitfile.path, commitstr, dockerfile, gitfile.sha, args["branch"]
+                gitfile.path, commitstr, dockerfile, gitfile.sha, branch
             )
-            logging.info("%s : %s", repo, commitstr)
+            logging.info("%s : %s", repo_slug, commitstr)
 
     # D-d-d-d d-d-d-do it again
     sleep(sleeptime)

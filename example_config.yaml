@@ -4,7 +4,19 @@ config:
 
 # The name of a GH repo you have push access to
 spritsail/nzbhydra:
-  branch: master
+  args:
+    NZBHYDRA_VER:
+      url: https://api.github.com/repos/theotherp/nzbhydra2/releases
+      structure: 0.tag_name
+      human_name: NZBHydra
+      strip_front: v
+    YQ_VER:
+      url: https://api.github.com/repos/mikefarah/yq/releases
+      structure: 0.tag_name
+      human_name: YQ
+
+# If you want to push to a non master branch, use an @ to dictate branch name
+spritsail/nzbhydra@non_default_branch:
   args:
     NZBHYDRA_VER:
       url: https://api.github.com/repos/theotherp/nzbhydra2/releases
