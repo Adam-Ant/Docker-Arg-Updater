@@ -1,4 +1,4 @@
-FROM spritsail/alpine:3.12
+FROM spritsail/alpine:3.14
 
 ADD main.py requirements.txt /
 
