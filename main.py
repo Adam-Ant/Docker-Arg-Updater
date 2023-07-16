@@ -17,9 +17,19 @@ import yaml
 ArgsType = dict[str, dict[str, str | int]]
 
 
-def fetch_http_json_val(url: str, struct: str, timeout: int = 30) -> Any:
+def fetch_http_json_val(
+    url: str,
+    struct: str,
+    timeout: int = 30,
+    github_token: str | None = None,
+) -> Any:
+    # Add github token if this is a github URL
+    headers = {}
+    if url.startswith("https://api.github.com/") and github_token is not None:
+        headers["authorization"] = f"token {github_token}"
+
     # Fetch the page data
-    r = requests.get(url, timeout=timeout)
+    r = requests.get(url, timeout=timeout, headers=headers)
     r.raise_for_status()
     data = r.json()
 
@@ -42,7 +52,12 @@ def fetch_http_json_val(url: str, struct: str, timeout: int = 30) -> Any:
     return data
 
 
-def validate_repo(repo_slug: str, args: ArgsType, timeout: int = 30) -> bool:
+def validate_repo(
+    repo_slug: str,
+    args: ArgsType,
+    timeout: int = 30,
+    github_token: str | None = None,
+) -> bool:
     # Get the repo & branch from the slug
     repo, branch = parse_repo_branch(repo_slug)
 
@@ -109,7 +124,12 @@ def validate_repo(repo_slug: str, args: ArgsType, timeout: int = 30) -> bool:
 
         # Check if URL goes somewhere valid.
         try:
-            fetch_http_json_val(options["url"], "", timeout=timeout)
+            fetch_http_json_val(
+                options["url"],
+                "",
+                timeout=timeout,
+                github_token=github_token,
+            )
         except requests.HTTPError as e:
             logging.warning(
                 "Got Response code %d for URL %s while running startup checks",
@@ -193,11 +213,11 @@ if __name__ == "__main__":
         logging.critical("Error loading config: Access token missing")
         sys.exit(78)
 
-    token = cfg["config"]["access_token"]
+    github_token = cfg["config"]["access_token"]
 
     # Log into the GH API, check if token is valid
     try:
-        git = github.Github(token)
+        git = github.Github(github_token)
     except github.BadCredentialsException:
         # TODO: Annoyingly, GitHub library eats this exception and bombs out of its
         # own accord. How Rude.
@@ -214,7 +234,7 @@ if __name__ == "__main__":
     logging.info("Performing startup validation checks...")
     for repo, args in cfg.items():
         try:
-            if not validate_repo(repo, args):
+            if not validate_repo(repo, args, github_token=github_token):
                 sys.exit(78)
         except Exception:  # pylint: disable=broad-except
             logging.exception("Failed to validate repo %s", repo)
@@ -239,7 +259,19 @@ if __name__ == "__main__":
                 for arg, data in args["args"].items():
                     arg_data = cfg[repo_slug]["args"][arg]
                     oldver = dockerfile_args[arg].value
-                    newver = fetch_http_json_val(arg_data["url"], arg_data["structure"])
+                    newver = fetch_http_json_val(
+                        arg_data["url"],
+                        arg_data["structure"],
+                        github_token=github_token,
+                    )
+
+                    if not isinstance(newver, str):
+                        logging.warning(
+                            "JSON value for url %s at path %s is not a string: %s",
+                            arg_data["url"],
+                            arg_data["structure"],
+                            newver,
+                        )
 
                     # Do we need to strip data off the front of the string?
                     if "strip_front" in data:
