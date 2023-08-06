@@ -1,12 +1,11 @@
-FROM spritsail/alpine:3.14
+FROM spritsail/alpine:3.18
 
-ADD main.py requirements.txt /
+RUN apk add --no-cache \
+        python3 \
+        py3-yaml \
+        py3-pygithub
 
-RUN apk add --no-cache python3 py3-pip \
- && apk add --no-cache -t build gcc libc-dev python3-dev libffi-dev make \
- && pip3 install -r /requirements.txt \
- && apk del --no-cache build
+ADD main.py /
 
 VOLUME ["/config"]
-
 CMD ["python3","-u","/main.py","-c","/config"]

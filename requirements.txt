@@ -1,2 +1,2 @@
-PyYAML>=5.4.1
-PyGithub>=1.54.1
+PyYAML>=6.0
+PyGithub>=1.59.0
