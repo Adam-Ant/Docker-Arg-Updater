@@ -2,6 +2,7 @@
 
 # pylint: disable=redefined-outer-name,invalid-name
 
+import re
 import argparse
 import logging
 import os
@@ -273,9 +274,8 @@ if __name__ == "__main__":
                             newver,
                         )
 
-                    # Do we need to strip data off the front of the string?
-                    if "strip_front" in data:
-                        newver = newver.split(data["strip_front"], 1)[1]
+                    if "version_regex" in data:
+                        newver = re.search(data["version_regex"], newver)[1]
 
                     if oldver != newver:
                         # Pass the Dockerfile into the writer
